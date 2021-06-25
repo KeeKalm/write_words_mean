@@ -66,7 +66,7 @@ class WordList:
             """
             return self._wwr
 
-    def __init__(self, word_file: str, encoding="utf-8"):
+    def __init__(self, word_file: str, encoding="utf-8", use_timestamp: bool=True):
         if not os.path.isfile(word_file):
             raise Exception(f"{word_file} not a file")
 
@@ -86,6 +86,8 @@ class WordList:
             forget_list = self._f.items("forget")
             self._ww.add(forget_list)
 
+        self._use_timestamp = use_timestamp
+
     def to_file_rand(self, out_dir: str = "out", tag: str = ""):
         try:
             os.makedirs(out_dir)
@@ -93,13 +95,14 @@ class WordList:
             pass
 
         self._ww.rand_list()
-
+        
+        file_name = f"{self._titile}_{tag}_听写_{datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')}.md" if self._use_timestamp else f"{self._titile}_{tag}_听写.md"
         self.__wordword_to_file(self._ww.make_list_random_no_note(),
-                                os.path.join(out_dir,
-                                             f"{self._titile}_{tag}_听写_{datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')}.md"))
+                                os.path.join(out_dir, file_name))
+
+        file_name = f"{self._titile}_{tag}_答案_{datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')}.md" if self._use_timestamp else f"{self._titile}_{tag}_答案.md"
         self.__wordword_to_file(self._ww.make_list_random_note(),
-                                os.path.join(out_dir,
-                                             f"{self._titile}_{tag}_答案_{datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')}.md"))
+                                os.path.join(out_dir, file_name))
 
     def __wordword_to_file(self,
                            ww: List[Tuple[str, str]],
@@ -122,6 +125,7 @@ def __argparse():
     parser = argparse.ArgumentParser(prog=__file__)
     parser.add_argument("ini_file", type=str, help="word list ini file")
     parser.add_argument("--out_dir", type=str, default="out", help="out dir for write word files")
+    parser.add_argument("--use_timestamp", type=bool, help="Do use timestamp in output file") # TODO: 该参数无效 use_timestamp 永远为 True
 
     tag_parsers = parser.add_subparsers(title='tag', help="do use tag in output files?")
 
@@ -137,33 +141,37 @@ def __argparse():
     list_tag_subparser = tag_parsers.add_parser('list_tag',
                                                 help='build specify the number of the list of tag of files with the list of tag')
     list_tag_subparser.add_argument('tag_list', type=str, help="file tag list")
+    list_tag_subparser.add_argument('--use_order', type=bool, default=True, help="Do use the order number of tag list")
     list_tag_subparser.set_defaults(func=__list_tag)
 
     return parser.parse_args()
 
 
 def __no_tag(args):
-    w = WordList(args.ini_file)
+    w = WordList(args.ini_file, use_timestamp=args.use_timestamp)
     for i in range(args.file_number):
         w.to_file_rand(out_dir=args.out_dir,
                        tag=str(i + 1))
 
 
 def __same_tag(args):
-    w = WordList(args.ini_file)
+    w = WordList(args.ini_file, use_timestamp=args.use_timestamp)
     for i in range(args.file_number):
         w.to_file_rand(out_dir=args.out_dir,
-                       tag=f"{args.tag}_{i + 1}")
+                       tag=f"{i + 1}_{args.tag}")
 
 
 def __list_tag(args):
-    w = WordList(args.ini_file)
+    print(args)
+    w = WordList(args.ini_file, use_timestamp=args.use_timestamp)
     tag_list = args.tag_list
     if tag_list.endswith(","):
         tag_list = tag_list[:-1]
-    for i in tag_list.split(","):
+    tag_list = tag_list.split(",")
+    for i in range(len(tag_list)):
+        tag = f"{i + 1}_{tag_list[i]}" if args.use_order else f"{tag_list[i]}"
         w.to_file_rand(out_dir=args.out_dir,
-                       tag=i)
+                       tag=tag)
 
 
 if __name__ == "__main__":
