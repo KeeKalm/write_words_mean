@@ -19,14 +19,18 @@ class WordList:
             self._wwr = []
             self.rand_list(seed)
 
-        def add(self, word_items: List[Tuple[str, str]], seed=None):
+        @property
+        def data(self):
+            return self._ww
+
+        def add(self, word_items, seed=None):
             """
             添加一组单词清单
             :param word_items:
             :param seed:
             :return:
             """
-            self._ww += word_items
+            self._ww += word_items.data
             self.rand_list(seed)
 
         def rand_list(self, seed=None):
@@ -84,9 +88,17 @@ class WordList:
 
         if self._f.has_section("forget"):
             forget_list = self._f.items("forget")
-            self._ww.add(forget_list)
+            _forget = self.__WordWord(forget_list)
+            self._ww.add(_forget)
 
         self._use_timestamp = use_timestamp
+
+    @property
+    def data(self):
+        return self._ww.data
+
+    def add(self, word_list):
+        self._ww.add(word_list.data)
 
     def to_file_rand(self, out_dir: str = "out", tag: str = ""):
         try:
@@ -122,12 +134,16 @@ def __argparse():
     """
     import argparse
 
+    def str2bool(str):
+        return True if str.lower() == "true" else False
+
     parser = argparse.ArgumentParser(prog=__file__)
     parser.add_argument("ini_file", type=str, help="word list ini file")
     parser.add_argument("--out_dir", type=str, default="out", help="out dir for write word files")
-    parser.add_argument("--use_timestamp", type=bool, help="Do use timestamp in output file") # TODO: 该参数无效 use_timestamp 永远为 True
+    parser.add_argument("--use_timestamp", type=str2bool, default=True, help="Do use timestamp in output file")
 
-    tag_parsers = parser.add_subparsers(title='tag', help="do use tag in output files?")
+    # tag
+    tag_parsers = parser.add_subparsers(dest='tag', help="do use tag in output files?")
 
     no_tag_parsers = tag_parsers.add_parser('no_tag', help='build specify the number of files without tag')
     no_tag_parsers.add_argument("file_number", type=int, help="the number of output files")
@@ -141,10 +157,10 @@ def __argparse():
     list_tag_subparser = tag_parsers.add_parser('list_tag',
                                                 help='build specify the number of the list of tag of files with the list of tag')
     list_tag_subparser.add_argument('tag_list', type=str, help="file tag list")
-    list_tag_subparser.add_argument('--use_order', type=bool, default=True, help="Do use the order number of tag list")
+    list_tag_subparser.add_argument('--use_order', type=str2bool, default=True, help="Do use the order number of tag list")
     list_tag_subparser.set_defaults(func=__list_tag)
 
-    return parser.parse_args()
+    return parser.parse_args("Unit7-2.ini --use_timestamp true no_tag 2".split(" "))
 
 
 def __no_tag(args):
@@ -162,7 +178,6 @@ def __same_tag(args):
 
 
 def __list_tag(args):
-    print(args)
     w = WordList(args.ini_file, use_timestamp=args.use_timestamp)
     tag_list = args.tag_list
     if tag_list.endswith(","):
@@ -176,4 +191,5 @@ def __list_tag(args):
 
 if __name__ == "__main__":
     args = __argparse()
+    print(args)
     args.func(args)
