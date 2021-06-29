@@ -160,7 +160,7 @@ def __argparse():
     list_tag_subparser.add_argument('--use_order', type=str2bool, default=True, help="Do use the order number of tag list")
     list_tag_subparser.set_defaults(func=__list_tag)
 
-    return parser.parse_args("Unit7-2.ini --use_timestamp true no_tag 2".split(" "))
+    return parser.parse_args("Unit8.ini list_tag 0min,5min,30min,12hour,1day,2day,4day,7day,15day".split(" "))
 
 
 def __no_tag(args):
