@@ -30,7 +30,7 @@ class WordList:
             :param seed:
             :return:
             """
-            self._ww += word_items.data
+            self._ww += word_items
             self.rand_list(seed)
 
         def rand_list(self, seed=None):
@@ -70,28 +70,28 @@ class WordList:
             """
             return self._wwr
 
-    def __init__(self, word_file: str, encoding="utf-8", use_timestamp: bool=True):
-        if not os.path.isfile(word_file):
-            raise Exception(f"{word_file} not a file")
+    def __init__(self,
+                 word_file: str,
+                 use_timestamp: bool = True,
+                 section_list: List[str] = ["word", "forget"],
+                 encoding="utf-8"):
 
-        self._titile = os.path.split(word_file)[-1].split(".")[0]
+        self._title = os.path.split(word_file)[-1].split(".")[0]
+        self._use_timestamp = use_timestamp
+        self._ww = self.__WordWord([])
 
+        if os.path.isfile(word_file):
+            self.__read_file(word_file, encoding, section_list)
+
+    def __read_file(self, word_file, encoding, section_list):
         self._f = ConfigParser(allow_no_value=True)
         self._f.read(word_file, encoding=encoding)
 
-        if not self._f.has_section("word"):
-            word_list = []
-        else:
-            word_list = self._f.items("word")
+        if ("word" in section_list) and (self._f.has_section("word")):
+            self._ww.add(self._f.items("word"))
 
-        self._ww = self.__WordWord(word_list)
-
-        if self._f.has_section("forget"):
-            forget_list = self._f.items("forget")
-            _forget = self.__WordWord(forget_list)
-            self._ww.add(_forget)
-
-        self._use_timestamp = use_timestamp
+        if ("forget" in section_list) and (self._f.has_section("forget")):
+            self._ww.add(self._f.items("forget"))
 
     @property
     def data(self):
@@ -107,12 +107,12 @@ class WordList:
             pass
 
         self._ww.rand_list()
-        
-        file_name = f"{self._titile}_{tag}_听写_{datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')}.md" if self._use_timestamp else f"{self._titile}_{tag}_听写.md"
+
+        file_name = f"{self._title}_{tag}_听写_{datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')}.md" if self._use_timestamp else f"{self._titile}_{tag}_听写.md"
         self.__wordword_to_file(self._ww.make_list_random_no_note(),
                                 os.path.join(out_dir, file_name))
 
-        file_name = f"{self._titile}_{tag}_答案_{datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')}.md" if self._use_timestamp else f"{self._titile}_{tag}_答案.md"
+        file_name = f"{self._title}_{tag}_答案_{datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')}.md" if self._use_timestamp else f"{self._titile}_{tag}_答案.md"
         self.__wordword_to_file(self._ww.make_list_random_note(),
                                 os.path.join(out_dir, file_name))
 
@@ -134,51 +134,88 @@ def __argparse():
     """
     import argparse
 
-    def str2bool(str):
-        return True if str.lower() == "true" else False
+    def str2bool(s: str):
+        return True if s.lower() == "true" else False
 
     parser = argparse.ArgumentParser(prog=__file__)
-    parser.add_argument("ini_file", type=str, help="word list ini file")
+    parser.add_argument("word_files", type=str,
+                        help="many word list word ini files that use [word] and maybe use [forget] , ex. Unit1.ini,Unit2.ini")
+    parser.add_argument("--use_forget", type=str2bool, default=False, help="Do use [forget] in word_files?")
     parser.add_argument("--out_dir", type=str, default="out", help="out dir for write word files")
-    parser.add_argument("--use_timestamp", type=str2bool, default=True, help="Do use timestamp in output file")
+    parser.add_argument("--use_timestamp", type=str2bool, default=True, help="Do use timestamp in output file?")
+    parser.add_argument("--forget_files", type=str, default="",
+                        help="many word list forget ini files that use [forget] , ex. Unit1.ini,Unit2.ini")
 
     # tag
-    tag_parsers = parser.add_subparsers(dest='tag', help="do use tag in output files?")
-
+    tag_parsers = parser.add_subparsers(dest='tag', help="Do use tag in output files?")
+    ## no tag
     no_tag_parsers = tag_parsers.add_parser('no_tag', help='build specify the number of files without tag')
     no_tag_parsers.add_argument("file_number", type=int, help="the number of output files")
     no_tag_parsers.set_defaults(func=__no_tag)
-
+    ## same tag
     same_tag_subparser = tag_parsers.add_parser('same_tag', help='build specify the number of files with same tag')
     same_tag_subparser.add_argument("file_number", type=int, help="the number of output files")
     same_tag_subparser.add_argument("tag", type=str, help="file tag")
     same_tag_subparser.set_defaults(func=__same_tag)
-
+    ## tag list
     list_tag_subparser = tag_parsers.add_parser('list_tag',
                                                 help='build specify the number of the list of tag of files with the list of tag')
     list_tag_subparser.add_argument('tag_list', type=str, help="file tag list")
-    list_tag_subparser.add_argument('--use_order', type=str2bool, default=True, help="Do use the order number of tag list")
+    list_tag_subparser.add_argument('--use_order', type=str2bool, default=True,
+                                    help="Do use the order number of tag list?")
     list_tag_subparser.set_defaults(func=__list_tag)
 
-    return parser.parse_args("Unit8.ini list_tag 0min,5min,30min,12hour,1day,2day,4day,7day,15day".split(" "))
+    return parser.parse_args("Unit7-1.ini --forget_files word.ini no_tag 1".split(" "))
+
+
+def __make_word_object(args) -> WordList:
+
+    use_timestamp = args.use_timestamp
+
+    word_files = [i for i in args.word_files.replace(" ", "").split(",") if os.path.isfile(i)]
+    word_sections = ["word", "forget"] if args.use_forget else ["word"]
+
+    forget_files = [i for i in args.forget_files.replace(" ", "").split(",") if os.path.isfile(i)]
+    forget_sections = ["forget"]
+
+    all_number = len(word_files) + len(forget_files)
+
+    if all_number <= 0:
+        w = WordList("Null", use_timestamp, [])
+    elif all_number > 1:
+        if len(word_files) == 1:
+            w = WordList(word_files[0], use_timestamp, word_sections)
+        else:
+            w = WordList(f"{all_number}files", use_timestamp, [])
+            for i in word_files:
+                w.add(WordList(i, use_timestamp, word_sections))
+        for i in forget_files:
+            w.add(WordList(i, use_timestamp, forget_sections))
+
+    elif all_number == 1:
+        if len(word_files) == 1:
+            w = WordList(word_files[0], use_timestamp, word_sections)
+        else:
+            w = WordList(forget_files[0], use_timestamp, forget_sections)
+    return w
 
 
 def __no_tag(args):
-    w = WordList(args.ini_file, use_timestamp=args.use_timestamp)
+    w = __make_word_object(args)
     for i in range(args.file_number):
         w.to_file_rand(out_dir=args.out_dir,
                        tag=str(i + 1))
 
 
 def __same_tag(args):
-    w = WordList(args.ini_file, use_timestamp=args.use_timestamp)
+    w = __make_word_object(args)
     for i in range(args.file_number):
         w.to_file_rand(out_dir=args.out_dir,
                        tag=f"{i + 1}_{args.tag}")
 
 
 def __list_tag(args):
-    w = WordList(args.ini_file, use_timestamp=args.use_timestamp)
+    w = __make_word_object(args)
     tag_list = args.tag_list
     if tag_list.endswith(","):
         tag_list = tag_list[:-1]
