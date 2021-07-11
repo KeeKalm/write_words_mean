@@ -165,7 +165,7 @@ def __argparse():
                                     help="Do use the order number of tag list?")
     list_tag_subparser.set_defaults(func=__list_tag)
 
-    return parser.parse_args("Unit7-1.ini --forget_files word.ini no_tag 1".split(" "))
+    return parser.parse_args()
 
 
 def __make_word_object(args) -> WordList:
